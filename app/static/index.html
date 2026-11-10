@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>需求分析助手</title>
   <link rel="stylesheet" href="/static/style.css">
-  <script type="module" src="/static/app.js"></script>
+  <script type="module" src="/static/app.js?v=ba-review-nav"></script>
 </head>
 <body>
   <header class="masthead">
@@ -59,7 +59,7 @@
           <div class="actions export-actions">
             <button type="button" class="secondary" id="export-json">下載 JSON</button>
             <button type="button" class="secondary" id="export-md">下載 Markdown</button>
-            <a class="ba-link" href="#ba-review">前往 BA 審閱</a>
+            <button type="button" class="secondary" id="open-ba-review" aria-controls="ba-review" disabled>前往 BA 審閱</button>
           </div>
           <div id="result-content"></div>
         </div>
@@ -67,7 +67,7 @@
     </div>
     <section class="panel ba-review" id="ba-review" aria-labelledby="ba-title" hidden>
       <div class="panel-heading">
-        <h2 id="ba-title">BA 需求審閱</h2>
+        <h2 id="ba-title" tabindex="-1">BA 需求審閱</h2>
       </div>
       <p class="draft-note">確認業務規則與驗收條件，完成後下載交接稿並附回需求單。草稿保存在目前頁面。</p>
       <form autocomplete="off" novalidate>

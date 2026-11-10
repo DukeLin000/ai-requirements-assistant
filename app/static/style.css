@@ -89,7 +89,7 @@ button.secondary { border-color: var(--border); color: #233c52; background: #fff
 button:hover:not(:disabled) { filter: brightness(0.94); }
 button:disabled { opacity: 0.58; cursor: default; }
 button:focus-visible, input:focus-visible, select:focus-visible,
-textarea:focus-visible, summary:focus-visible, a:focus-visible {
+textarea:focus-visible, summary:focus-visible, #ba-title:focus {
   outline: 2px solid #1e7060;
   outline-offset: 2px;
 }
@@ -146,7 +146,6 @@ textarea:focus-visible, summary:focus-visible, a:focus-visible {
   white-space: pre-wrap;
 }
 .request-id { margin-top: 14px; overflow-wrap: anywhere; }
-.ba-link { align-self: center; padding: 6px 4px; color: var(--accent); font-weight: 650; }
 .ba-review { margin-bottom: 32px; }
 .ba-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; }
 .ba-metadata { margin-top: 16px; }

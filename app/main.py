@@ -116,6 +116,8 @@ def create_app(service: AnalysisService | None = None) -> FastAPI:
         response.headers["X-Content-Type-Options"] = "nosniff"
         if is_analysis:
             response.headers["Cache-Control"] = "no-store"
+        elif request.scope["path"].startswith("/static/"):
+            response.headers["Cache-Control"] = "no-cache"
         return response
 
     @app.get("/", include_in_schema=False)

@@ -46,12 +46,18 @@ class AppTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(page.status_code, 200)
         self.assertIn('id="analysis-form"', page.text)
         self.assertIn('id="ba-review"', page.text)
-        self.assertIn('type="module" src="/static/app.js"', page.text)
+        self.assertIn('id="open-ba-review" aria-controls="ba-review" disabled', page.text)
+        self.assertIn('id="ba-title" tabindex="-1"', page.text)
+        self.assertIn('type="module" src="/static/app.js?v=ba-review-nav"', page.text)
         self.assertIn("default-src 'self'", page.headers["Content-Security-Policy"])
-        for filename in ("app.js", "ba-draft.mjs", "ba-review.mjs"):
+        for filename in ("app.js?v=ba-review-nav", "ba-draft.mjs", "ba-review.mjs"):
             script = await self.client.get(f"/static/{filename}")
             self.assertEqual(script.status_code, 200)
             self.assertIn(script.headers["Content-Type"].split(";")[0], {"text/javascript", "application/javascript"})
+            self.assertEqual(script.headers["Cache-Control"], "no-cache")
+            cached = await self.client.get(f"/static/{filename}", headers={"If-None-Match": script.headers["ETag"]})
+            self.assertEqual(cached.status_code, 304)
+            self.assertEqual(cached.headers["Cache-Control"], "no-cache")
         self.assertEqual((await self.client.get("/healthz")).json(), {"status": "ok"})
         self.assertEqual((await self.client.get("/static/example.json")).json(), EXAMPLE)
 
