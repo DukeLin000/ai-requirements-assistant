@@ -12,7 +12,7 @@
 * { box-sizing: border-box; }
 body { margin: 0; }
 h1, h2, h3, h4, p { margin: 0; }
-button, input, textarea { font: inherit; }
+button, input, select, textarea { font: inherit; }
 [hidden] { display: none !important; }
 .shell { width: min(1120px, calc(100% - 40px)); margin-inline: auto; }
 .masthead { background: #172638; color: #fff; }
@@ -61,7 +61,7 @@ button, input, textarea { font: inherit; }
 .panel-heading h2 { font-size: 1.12rem; }
 fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 label { font-weight: 650; }
-input, textarea {
+input, select, textarea {
   color: inherit;
   background: #fcfdfe;
   border: 1px solid #b7c6d8;
@@ -88,7 +88,8 @@ button {
 button.secondary { border-color: var(--border); color: #233c52; background: #fff; }
 button:hover:not(:disabled) { filter: brightness(0.94); }
 button:disabled { opacity: 0.58; cursor: default; }
-button:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible {
+button:focus-visible, input:focus-visible, select:focus-visible,
+textarea:focus-visible, summary:focus-visible, a:focus-visible {
   outline: 2px solid #1e7060;
   outline-offset: 2px;
 }
@@ -145,9 +146,21 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus
   white-space: pre-wrap;
 }
 .request-id { margin-top: 14px; overflow-wrap: anywhere; }
+.ba-link { align-self: center; padding: 6px 4px; color: var(--accent); font-weight: 650; }
+.ba-review { margin-bottom: 32px; }
+.ba-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; }
+.ba-metadata { margin-top: 16px; }
+.ba-field { display: block; min-width: 0; }
+.ba-field > select { display: block; margin-top: 5px; }
+.ba-field > .hint { display: block; margin-top: 4px; }
+.ba-group { border-top: 1px solid var(--border); margin-top: 18px; padding-top: 12px; }
+.ba-group .panel-heading { margin-bottom: 8px; }
+.ba-group h3 { font-size: 1rem; }
+.ba-item > .ba-field, .ba-item > .ba-field-grid, .ba-item > p { margin-top: 10px; }
+.ba-item-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 
 @media (max-width: 800px) {
-  .workspace { grid-template-columns: minmax(0, 1fr); }
+  .workspace, .ba-field-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 420px) {
   .shell { width: calc(100% - 24px); }

@@ -1,4 +1,5 @@
-"use strict";
+import { escapeMarkdown } from "./ba-draft.mjs";
+import { mountBaReview } from "./ba-review.mjs";
 
 const form = document.querySelector("#analysis-form");
 const fields = document.querySelector("#analysis-fields");
@@ -27,6 +28,10 @@ const KIND_LABELS = { happy_path: "正常情境", boundary: "邊界情境", erro
 
 let currentResult = null;
 let activeRequest = null;
+const baReview = mountBaReview(document.querySelector("#ba-review"), {
+  node,
+  download: (content, requestId) => download(content, "text/markdown", "md", "ba-handoff-" + requestId),
+});
 
 function node(tag, text, className) {
   const element = document.createElement(tag);
@@ -45,6 +50,7 @@ function startRequest() {
   activeRequest = new AbortController();
   fields.disabled = true;
   loadExample.disabled = true;
+  baReview.setBusy(true);
   return activeRequest.signal;
 }
 
@@ -52,8 +58,10 @@ function finishRequest() {
   activeRequest = null;
   fields.disabled = false;
   loadExample.disabled = false;
+  baReview.setBusy(false);
   analyzeButton.textContent = "執行分析";
   resultPanel.removeAttribute("aria-busy");
+  if (!currentResult) emptyState.textContent = "輸入需求或載入範例後執行分析。";
 }
 
 function clearResult() {
@@ -63,6 +71,11 @@ function clearResult() {
   resultContent.replaceChildren();
   emptyState.textContent = "輸入需求或載入範例後執行分析。";
   emptyState.hidden = false;
+  baReview.clear();
+}
+
+function canReplaceReview() {
+  return !baReview.isDirty() || window.confirm("繼續後，操作成功時將清除尚未下載的 BA 修改。確定繼續？");
 }
 
 function canonicalRequirement() {
@@ -154,12 +167,7 @@ function renderResult(result) {
   }
   resultContent.append(node("p", "請求編號 " + result.request_id, "hint request-id"));
   resultView.hidden = false;
-}
-
-function escapeMarkdown(text) {
-  return text.replace(/[\r\n]+/g, " ")
-    .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
-    .replace(/[\\*_{}\[\]()#+\-.!|\x60]/g, "\\$&");
+  baReview.load(result);
 }
 
 function markdown(result) {
@@ -196,11 +204,11 @@ function markdown(result) {
   return lines.join("\n") + "\n";
 }
 
-function download(content, mediaType, extension) {
+function download(content, mediaType, extension, basename = "requirements-" + currentResult.request_id) {
   const url = URL.createObjectURL(new Blob([content], { type: mediaType + ";charset=utf-8" }));
   const link = node("a");
   link.href = url;
-  link.download = "requirements-" + currentResult.request_id + "." + extension;
+  link.download = basename + "." + extension;
   document.body.append(link);
   link.click();
   link.remove();
@@ -210,7 +218,6 @@ function download(content, mediaType, extension) {
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (activeRequest) return;
-  clearResult();
   const name = systemName.value.trim();
   const requirement = canonicalRequirement();
   const length = Array.from(requirement).length;
@@ -224,10 +231,11 @@ form.addEventListener("submit", async (event) => {
     setNotice("系統名稱上限為 80 個字元，測試案例上限須為 1 至 12 的整數。", "error");
     return;
   }
+  if (!canReplaceReview()) return;
   const signal = startRequest();
   analyzeButton.textContent = "分析中…";
   resultPanel.setAttribute("aria-busy", "true");
-  emptyState.textContent = "正在分析需求…";
+  if (!currentResult) emptyState.textContent = "正在分析需求…";
   setNotice("分析中，請稍候。");
   try {
     const response = await fetch("/api/v1/analyses", {
@@ -241,13 +249,11 @@ form.addEventListener("submit", async (event) => {
     if (!response.ok) {
       const id = body.request_id ? " 請求編號 " + body.request_id : "";
       setNotice((body.error?.message || "分析失敗。") + id, "error");
-      clearResult();
       return;
     }
     renderResult({ ...body, system_name: name || null });
     setNotice("已完成分析，可檢視草稿與原文引用。");
   } catch (error) {
-    clearResult();
     setNotice(error.name === "AbortError" ? "" : "無法取得分析結果，請稍後重試。", "error");
   } finally {
     finishRequest();
@@ -255,7 +261,7 @@ form.addEventListener("submit", async (event) => {
 });
 
 loadExample.addEventListener("click", async () => {
-  if (activeRequest) return;
+  if (activeRequest || !canReplaceReview()) return;
   const signal = startRequest();
   try {
     const response = await fetch("/static/example.json", { signal });
@@ -275,7 +281,7 @@ loadExample.addEventListener("click", async () => {
 });
 
 document.querySelector("#clear").addEventListener("click", () => {
-  if (activeRequest) return;
+  if (activeRequest || !canReplaceReview()) return;
   form.reset();
   updateCount();
   clearResult();

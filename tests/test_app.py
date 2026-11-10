@@ -45,7 +45,13 @@ class AppTests(unittest.IsolatedAsyncioTestCase):
         page = await self.client.get("/")
         self.assertEqual(page.status_code, 200)
         self.assertIn('id="analysis-form"', page.text)
+        self.assertIn('id="ba-review"', page.text)
+        self.assertIn('type="module" src="/static/app.js"', page.text)
         self.assertIn("default-src 'self'", page.headers["Content-Security-Policy"])
+        for filename in ("app.js", "ba-draft.mjs", "ba-review.mjs"):
+            script = await self.client.get(f"/static/{filename}")
+            self.assertEqual(script.status_code, 200)
+            self.assertIn(script.headers["Content-Type"].split(";")[0], {"text/javascript", "application/javascript"})
         self.assertEqual((await self.client.get("/healthz")).json(), {"status": "ok"})
         self.assertEqual((await self.client.get("/static/example.json")).json(), EXAMPLE)
 

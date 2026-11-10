@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>需求分析助手</title>
   <link rel="stylesheet" href="/static/style.css">
-  <script src="/static/app.js" defer></script>
+  <script type="module" src="/static/app.js"></script>
 </head>
 <body>
   <header class="masthead">
@@ -59,11 +59,64 @@
           <div class="actions export-actions">
             <button type="button" class="secondary" id="export-json">下載 JSON</button>
             <button type="button" class="secondary" id="export-md">下載 Markdown</button>
+            <a class="ba-link" href="#ba-review">前往 BA 審閱</a>
           </div>
           <div id="result-content"></div>
         </div>
       </section>
     </div>
+    <section class="panel ba-review" id="ba-review" aria-labelledby="ba-title" hidden>
+      <div class="panel-heading">
+        <h2 id="ba-title">BA 需求審閱</h2>
+      </div>
+      <p class="draft-note">確認業務規則與驗收條件，完成後下載交接稿並附回需求單。草稿保存在目前頁面。</p>
+      <form autocomplete="off" novalidate>
+        <fieldset id="ba-review-fields">
+          <div class="ba-field-grid ba-metadata">
+            <label class="ba-field">需求單號（必填）
+              <input data-ba-meta="requestNumber" maxlength="80" placeholder="例如 REQ-001" required>
+            </label>
+            <label class="ba-field">需求來源（必填）
+              <input data-ba-meta="sourceName" maxlength="160" placeholder="例如分行交易報表需求書" required>
+            </label>
+            <label class="ba-field">來源版本（必填）
+              <input data-ba-meta="sourceVersion" maxlength="80" placeholder="例如 v1.2 或文件日期" required>
+            </label>
+            <label class="ba-field">業務目標
+              <textarea data-ba-meta="goal" rows="2" maxlength="1000"></textarea>
+            </label>
+            <label class="ba-field">範圍
+              <textarea data-ba-meta="scope" rows="2" maxlength="1000"></textarea>
+            </label>
+          </div>
+          <section class="ba-group" aria-labelledby="ba-rules-title">
+            <div class="panel-heading">
+              <h3 id="ba-rules-title">業務規則</h3>
+              <button type="button" class="secondary" data-ba-add="rules">新增規則</button>
+            </div>
+            <div id="ba-rules"></div>
+          </section>
+          <section class="ba-group" aria-labelledby="ba-questions-title">
+            <div class="panel-heading">
+              <h3 id="ba-questions-title">待確認事項與決議</h3>
+              <button type="button" class="secondary" data-ba-add="questions">新增問題</button>
+            </div>
+            <div id="ba-questions"></div>
+          </section>
+          <section class="ba-group" aria-labelledby="ba-criteria-title">
+            <div class="panel-heading">
+              <h3 id="ba-criteria-title">驗收條件</h3>
+              <button type="button" class="secondary" data-ba-add="criteria">新增驗收條件</button>
+            </div>
+            <div id="ba-criteria"></div>
+          </section>
+          <div class="actions">
+            <button type="submit">下載 BA 交接稿</button>
+          </div>
+        </fieldset>
+        <p class="notice" id="ba-notice" role="status" aria-live="polite" hidden></p>
+      </form>
+    </section>
   </main>
 </body>
 </html>
