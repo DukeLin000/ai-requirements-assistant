@@ -48,9 +48,13 @@ class AppTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('id="ba-review"', page.text)
         self.assertIn('id="open-ba-review" aria-controls="ba-review" disabled', page.text)
         self.assertIn('id="ba-title" tabindex="-1"', page.text)
-        self.assertIn('type="module" src="/static/app.js?v=ba-review-nav"', page.text)
+        self.assertIn('id="open-ba-activity" aria-controls="ba-activity" disabled', page.text)
+        self.assertIn('type="module" src="/static/app.js?v=uml-activity"', page.text)
         self.assertIn("default-src 'self'", page.headers["Content-Security-Policy"])
-        for filename in ("app.js?v=ba-review-nav", "ba-draft.mjs", "ba-review.mjs"):
+        for filename in (
+            "app.js?v=uml-activity", "ba-draft.mjs?v=uml-activity", "ba-review.mjs?v=uml-activity",
+            "ba-activity.mjs", "activity-svg.mjs",
+        ):
             script = await self.client.get(f"/static/{filename}")
             self.assertEqual(script.status_code, 200)
             self.assertIn(script.headers["Content-Type"].split(";")[0], {"text/javascript", "application/javascript"})
@@ -100,6 +104,32 @@ class AppTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data["features"][1]["source_quotes"], ["使用者不得讀取其他人的報表。"])
         self.assertTrue(all(feature["basis"] == "proposed" for feature in data["features"]))
         self.assertTrue(all(case["expected_result"] is None for case in data["test_cases"]))
+
+    async def test_report_activity_keeps_unknown_outcome_linked_to_its_question(self) -> None:
+        text = "分行作業人員可以查詢並下載所屬分行的每日交易彙總報表，格式為 Excel。"
+        response = await self.client.post(ANALYSIS_PATH, json={"requirement_text": text})
+        self.assertEqual(response.status_code, 200, response.text)
+        data = response.json()["data"]
+        feature = data["features"][0]
+        self.assertEqual(feature["source_quotes"], [text])
+        plan = feature["activity"]
+        self.assertEqual(plan["steps"][0]["actor"], "分行作業人員")
+        self.assertIn("所屬分行", plan["steps"][1]["action"])
+        branch = plan["branch"]
+        self.assertEqual(branch["otherwise_question_id"], "Q01")
+        self.assertEqual(branch["when_true"][1]["action"], "輸出 Excel 檔案")
+        self.assertEqual(branch["when_true"][1]["guard"], "分行作業人員選擇下載？")
+        self.assertEqual(data["questions"][0]["question"], "查無交易時，是否可下載 Excel？")
+        self.assertIsNone(data["test_cases"][0]["expected_result"])
+
+    async def test_activity_uses_explicit_order_and_leaves_prohibitions_as_candidates(self) -> None:
+        text = "申請人必須先填寫申請資料，再提交申請給審核人員。\n停權人員不可以查詢並下載庫存報表，格式為 CSV。"
+        response = await self.client.post(ANALYSIS_PATH, json={"requirement_text": text})
+        self.assertEqual(response.status_code, 200, response.text)
+        ordered, prohibited = response.json()["data"]["features"]
+        self.assertEqual([step["action"] for step in ordered["activity"]["steps"]], ["填寫申請資料", "提交申請給審核人員"])
+        self.assertIsNone(ordered["activity"]["branch"])
+        self.assertIsNone(prohibited["activity"])
 
     async def test_insufficient_input_has_no_features_or_tests(self) -> None:
         response = await self.client.post(ANALYSIS_PATH, json={"requirement_text": "今天的例會會議紀錄整理完畢，以上是工作進度報告。"})
@@ -177,7 +207,7 @@ class AppTests(unittest.IsolatedAsyncioTestCase):
     async def test_invalid_output_is_rejected_and_next_request_can_run(self) -> None:
         good = await MockAnalyzer().generate(AnalysisRequest.model_validate(EXAMPLE))
         invalid_outputs = []
-        for change in ("quote", "empty_quote", "duplicate_id", "criterion", "blocker", "result"):
+        for change in ("quote", "empty_quote", "duplicate_id", "criterion", "blocker", "activity_question", "result"):
             data = copy.deepcopy(good)
             if change == "quote":
                 data["features"][0]["source_quotes"] = ["private-model-marker"]
@@ -189,6 +219,15 @@ class AppTests(unittest.IsolatedAsyncioTestCase):
                 data["test_cases"][1]["criterion_id"] = "A01"
             elif change == "blocker":
                 data["test_cases"][1]["blocked_by"] = ["Q99"]
+            elif change == "activity_question":
+                data["features"][0]["activity"] = {
+                    "steps": [{"actor": "會員", "action": "查詢預約"}],
+                    "branch": {
+                        "condition": "已有預約？",
+                        "when_true": [{"actor": "系統", "action": "顯示預約"}],
+                        "otherwise_question_id": "Q01",
+                    },
+                }
             else:
                 data["test_cases"][1]["expected_result"] = "private-model-marker"
             invalid_outputs.append(data)

@@ -89,7 +89,8 @@ button.secondary { border-color: var(--border); color: #233c52; background: #fff
 button:hover:not(:disabled) { filter: brightness(0.94); }
 button:disabled { opacity: 0.58; cursor: default; }
 button:focus-visible, input:focus-visible, select:focus-visible,
-textarea:focus-visible, summary:focus-visible, #ba-title:focus {
+textarea:focus-visible, summary:focus-visible, #ba-title:focus,
+#ba-activity-title:focus, .activity-preview:focus-visible {
   outline: 2px solid #1e7060;
   outline-offset: 2px;
 }
@@ -157,6 +158,14 @@ textarea:focus-visible, summary:focus-visible, #ba-title:focus {
 .ba-group h3 { font-size: 1rem; }
 .ba-item > .ba-field, .ba-item > .ba-field-grid, .ba-item > p { margin-top: 10px; }
 .ba-item-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.activity-preview {
+  overflow: auto;
+  max-height: 34rem;
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.activity-preview svg { display: block; margin-inline: auto; }
 
 @media (max-width: 800px) {
   .workspace, .ba-field-grid { grid-template-columns: minmax(0, 1fr); }

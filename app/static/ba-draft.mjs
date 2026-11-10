@@ -20,15 +20,20 @@ export function createBaDraft(result) {
     requestId: result.request_id,
     systemName: result.system_name || "",
     meta: { requestNumber: "", sourceName: "", sourceVersion: "", goal: "", scope: "" },
-    rules: data.features.map((feature) => ({
-      id: ruleId(feature.id),
-      text: feature.description,
-      basis: feature.basis,
-      quotes: [...feature.source_quotes],
-      location: "",
-      status: "pending",
-      confirmation: "",
-    })),
+    rules: data.features.map((feature) => {
+      const plan = feature.activity ? structuredClone(feature.activity) : null;
+      if (plan?.branch) plan.branch.otherwise_question_id = questionId(plan.branch.otherwise_question_id);
+      return {
+        id: ruleId(feature.id),
+        text: feature.description,
+        basis: feature.basis,
+        quotes: [...feature.source_quotes],
+        location: "",
+        status: "pending",
+        confirmation: "",
+        activitySeed: plan ? { text: feature.description, plan } : null,
+      };
+    }),
     questions: data.questions.map((question) => ({
       id: questionId(question.id),
       text: question.question,

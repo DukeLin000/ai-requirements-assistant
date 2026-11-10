@@ -1,7 +1,9 @@
 import {
   ACCEPTANCE_LABELS, acceptanceStatus, baHandoffMarkdown, createBaDraft,
   questionResolved, sourceLabel, validateBaDraft,
-} from "./ba-draft.mjs";
+} from "./ba-draft.mjs?v=uml-activity";
+import { activityOptions, activityPlantUml, buildActivity } from "./ba-activity.mjs";
+import { activitySvg } from "./activity-svg.mjs";
 
 const NEW_ITEMS = {
   rules: () => ({ text: "", basis: "manual", quotes: [], location: "", status: "pending", confirmation: "" }),
@@ -21,15 +23,59 @@ export function mountBaReview(panel, { node, download }) {
     criteria: panel.querySelector("#ba-criteria"),
   };
   const addButtons = [...panel.querySelectorAll("[data-ba-add]")];
+  const activitySelect = panel.querySelector("#ba-activity-choice");
+  const activityStatus = panel.querySelector("#ba-activity-status");
+  const activityQuestions = panel.querySelector("#ba-activity-questions");
+  const activityPreview = panel.querySelector("#ba-activity-preview");
+  const activityNotice = panel.querySelector("#ba-activity-notice");
+  const activityButtons = [...panel.querySelectorAll("[data-activity-export]")];
   let draft = null;
   let dirty = false;
   let nextIds = {};
+  let activity = null;
+  let activityMarkup = "";
+  let activityOptionsKey = "";
   const statusUpdates = [];
 
-  function setNotice(message, kind = "info") {
-    notice.textContent = message;
-    notice.dataset.kind = kind;
-    notice.hidden = !message;
+  function setNotice(message, kind = "info", target = notice) {
+    target.textContent = message;
+    target.dataset.kind = kind;
+    target.hidden = !message;
+  }
+
+  function renderActivity() {
+    const options = draft ? activityOptions(draft) : [];
+    const key = options.map(([, label]) => label).join("\n");
+    if (activityOptionsKey !== key) {
+      const selected = activitySelect.value;
+      activitySelect.replaceChildren(...options.map(([id, label]) => {
+        const option = node("option", label);
+        option.value = id;
+        return option;
+      }));
+      activitySelect.value = selected;
+      activityOptionsKey = key;
+    }
+    if (!options.some(([id]) => id === activitySelect.value)) activitySelect.value = options[0]?.[0] ?? "";
+    activity = draft ? buildActivity(draft, activitySelect.value) : null;
+    activitySelect.disabled = !options.length;
+    activityButtons.forEach((button) => { button.disabled = !activity; });
+    activityStatus.textContent = activity?.status ?? "請先補上業務規則，再檢視活動圖。";
+    const questions = activity?.questionLabels.join("、") ?? "";
+    activityQuestions.textContent = questions ? "關聯問題　" + questions : "";
+    activityQuestions.hidden = !questions;
+    activityPreview.hidden = !activity;
+    activityMarkup = activity ? activitySvg(activity) : "";
+    activityPreview.replaceChildren();
+    if (activityMarkup) {
+      const parsed = new DOMParser().parseFromString(activityMarkup, "image/svg+xml");
+      activityPreview.append(parsed.documentElement);
+    }
+    setNotice("", "info", activityNotice);
+  }
+
+  function activityBasename() {
+    return "ba-activity-" + draft.requestId + "-" + activity.id;
   }
 
   function warnBeforeLeaving(event) {
@@ -48,6 +94,7 @@ export function mountBaReview(panel, { node, download }) {
     setDirty(true);
     setNotice("");
     statusUpdates.forEach((update) => update());
+    renderActivity();
   }
 
   function field(label, item, key, { choices, type = "text", placeholder, note, onEdit } = {}) {
@@ -220,6 +267,21 @@ export function mountBaReview(panel, { node, download }) {
       lists[group].lastElementChild.querySelector("input, textarea, select")?.focus();
     });
   }
+  activitySelect.addEventListener("change", renderActivity);
+  for (const button of activityButtons) {
+    button.addEventListener("click", () => {
+      if (!activity || fields.disabled) return;
+      const issue = validateBaDraft(draft);
+      if (issue) {
+        setNotice(issue, "error", activityNotice);
+        return;
+      }
+      const format = button.dataset.activityExport;
+      if (format === "svg") download(activityMarkup, "image/svg+xml", format, activityBasename());
+      else download(activityPlantUml(activity), "text/plain", format, activityBasename());
+      setNotice("已產出活動圖檔案，可附回需求單。", "info", activityNotice);
+    });
+  }
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     if (!draft || fields.disabled) return;
@@ -228,7 +290,12 @@ export function mountBaReview(panel, { node, download }) {
       setNotice(issue, "error");
       return;
     }
-    download(baHandoffMarkdown(draft), draft.requestId);
+    const appendix = activity ? [
+      "", "## UML 活動圖", "", "- 圖面對象　" + activity.id,
+      "- 搭配圖檔　" + activityBasename() + ".svg", "",
+      "```plantuml", activityPlantUml(activity).trimEnd(), "```", "",
+    ].join("\n") : "";
+    download(baHandoffMarkdown(draft) + appendix, "text/markdown", "md", "ba-handoff-" + draft.requestId);
     setDirty(false);
     setNotice("已產出 BA 交接稿，可附回需求單。");
   });
@@ -243,6 +310,7 @@ export function mountBaReview(panel, { node, download }) {
       setDirty(false);
       setNotice("");
       render();
+      renderActivity();
       panel.hidden = false;
     },
     clear() {
@@ -252,6 +320,7 @@ export function mountBaReview(panel, { node, download }) {
       statusUpdates.length = 0;
       setDirty(false);
       setNotice("");
+      renderActivity();
       panel.hidden = true;
     },
     isDirty: () => dirty,

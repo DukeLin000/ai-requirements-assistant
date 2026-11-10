@@ -51,6 +51,7 @@ def validate_analysis(data: AnalysisData, request: AnalysisRequest) -> AnalysisS
     unique_ids(criterion.id for criterion in data.acceptance_criteria)
     unique_ids(case.id for case in data.test_cases)
     criteria = {criterion.id: criterion for criterion in data.acceptance_criteria}
+    questions = {question.id: question for question in data.questions}
 
     if len(data.test_cases) > request.max_test_cases:
         raise InvalidAnalysis("test-case limit exceeded")
@@ -66,6 +67,16 @@ def validate_analysis(data: AnalysisData, request: AnalysisRequest) -> AnalysisS
     for question in data.questions:
         if not unique_ids(question.related_feature_ids) <= feature_ids:
             raise InvalidAnalysis("question references an unknown feature")
+    for feature in data.features:
+        if feature.activity is None:
+            continue
+        if not feature.source_quotes:
+            raise InvalidAnalysis("activity plan without a source quote")
+        branch = feature.activity.branch
+        if branch is not None:
+            question = questions.get(branch.otherwise_question_id)
+            if question is None or feature.id not in question.related_feature_ids:
+                raise InvalidAnalysis("activity branch references a missing or unrelated question")
     for criterion in data.acceptance_criteria:
         if criterion.feature_id not in feature_ids:
             raise InvalidAnalysis("criterion references an unknown feature")

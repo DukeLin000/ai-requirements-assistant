@@ -14,6 +14,48 @@ _REQUIREMENT_WORD = re.compile(
     r"\b(?:must|shall|may|can|cannot|allows?|supports?|requires?)\b",
     re.IGNORECASE,
 )
+_REPORT_FLOW = re.compile(
+    r"(?P<actor>[\w ]{1,32}?)(?:可以|可)\s*查詢\s*(?:並|及|與)\s*下載\s*"
+    r"(?P<report>[^，,。；;]{0,75}報表)[，,]\s*格式為\s*(?P<format>Excel|CSV|PDF)\s*[。.]?",
+    re.IGNORECASE,
+)
+_ORDERED_FLOW = re.compile(
+    r"(?P<actor>[\w ]{1,32}?)(?:必須|需要|須|應)先(?P<first>[^，,。；;]{1,80})[，,]\s*"
+    r"(?:再|接著|然後)(?P<second>[^，,。；;]{1,90})[。.]?",
+)
+_DEFAULT_QUESTION = "請確認此片段的觸發條件、可驗收結果與例外規則。"
+_NEGATIVE_SUFFIXES = ("不", "未", "無")
+
+
+def _suggest_activity(fragment: str, question_id: str) -> tuple[dict[str, object] | None, str]:
+    report = _REPORT_FLOW.fullmatch(fragment)
+    if report and not report["actor"].strip().endswith(_NEGATIVE_SUFFIXES):
+        actor, name, file_format = report.group("actor", "report", "format")
+        empty = "查無交易" if "交易" in name else "查無資料"
+        return {
+            "steps": [
+                {"actor": actor, "action": f"查詢{name}"},
+                {"actor": "系統", "action": f"取得{name}資料"},
+            ],
+            "branch": {
+                "condition": "查到報表資料？",
+                "when_true": [
+                    {"actor": "系統", "action": "顯示報表"},
+                    {"actor": "系統", "action": f"輸出 {file_format} 檔案", "guard": f"{actor}選擇下載？"},
+                ],
+                "otherwise_question_id": question_id,
+            },
+        }, f"{empty}時，是否可下載 {file_format}？"
+
+    ordered = _ORDERED_FLOW.fullmatch(fragment)
+    if ordered and not ordered["actor"].strip().endswith(_NEGATIVE_SUFFIXES):
+        actor, first, second = ordered.group("actor", "first", "second")
+        return {"steps": [
+            {"actor": actor, "action": first},
+            {"actor": "角色待確認", "action": second.rstrip(".")},
+        ]}, _DEFAULT_QUESTION
+
+    return None, _DEFAULT_QUESTION
 
 
 class MockAnalyzer:
@@ -41,16 +83,18 @@ class MockAnalyzer:
         for index, fragment in enumerate(fragments[:10], start=1):
             feature_id = f"F{index:02d}"
             question_id = f"Q{index:02d}"
+            activity, question = _suggest_activity(fragment, question_id)
             features.append({
                 "id": feature_id,
                 "title": f"需求片段 {index}",
                 "description": fragment,
                 "basis": "proposed",
                 "source_quotes": [fragment],
+                "activity": activity,
             })
             questions.append({
                 "id": question_id,
-                "question": "請確認此片段的觸發條件、可驗收結果與例外規則。",
+                "question": question,
                 "reason": "確認後才能制定可執行的驗收條件。",
                 "related_feature_ids": [feature_id],
             })

@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>需求分析助手</title>
-  <link rel="stylesheet" href="/static/style.css">
-  <script type="module" src="/static/app.js?v=ba-review-nav"></script>
+  <link rel="stylesheet" href="/static/style.css?v=uml-activity">
+  <script type="module" src="/static/app.js?v=uml-activity"></script>
 </head>
 <body>
   <header class="masthead">
@@ -60,6 +60,7 @@
             <button type="button" class="secondary" id="export-json">下載 JSON</button>
             <button type="button" class="secondary" id="export-md">下載 Markdown</button>
             <button type="button" class="secondary" id="open-ba-review" aria-controls="ba-review" disabled>前往 BA 審閱</button>
+            <button type="button" class="secondary" id="open-ba-activity" aria-controls="ba-activity" disabled>檢視 UML 活動圖</button>
           </div>
           <div id="result-content"></div>
         </div>
@@ -109,6 +110,23 @@
               <button type="button" class="secondary" data-ba-add="criteria">新增驗收條件</button>
             </div>
             <div id="ba-criteria"></div>
+          </section>
+          <section class="ba-group" id="ba-activity" aria-labelledby="ba-activity-title">
+            <div class="panel-heading">
+              <h3 id="ba-activity-title" tabindex="-1">UML 活動圖草稿</h3>
+            </div>
+            <label class="ba-field">圖面對象
+              <select id="ba-activity-choice"></select>
+            </label>
+            <p class="hint field-hint" id="ba-activity-status" role="status"></p>
+            <p class="hint field-hint" id="ba-activity-questions" hidden></p>
+            <div id="ba-activity-preview" class="activity-preview" tabindex="0" aria-label="UML 活動圖預覽" hidden></div>
+            <div class="actions">
+              <button type="button" class="secondary" data-activity-export="svg" disabled>下載 SVG 圖</button>
+              <button type="button" class="secondary" data-activity-export="puml" disabled>下載 PlantUML</button>
+            </div>
+            <p class="hint field-hint">交接稿附上目前選取的圖面原始碼。可將 SVG 一起附回需求單。</p>
+            <p class="notice" id="ba-activity-notice" role="status" hidden></p>
           </section>
           <div class="actions">
             <button type="submit">下載 BA 交接稿</button>

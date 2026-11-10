@@ -1,5 +1,5 @@
-import { escapeMarkdown } from "./ba-draft.mjs";
-import { mountBaReview } from "./ba-review.mjs";
+import { escapeMarkdown } from "./ba-draft.mjs?v=uml-activity";
+import { mountBaReview } from "./ba-review.mjs?v=uml-activity";
 
 const form = document.querySelector("#analysis-form");
 const fields = document.querySelector("#analysis-fields");
@@ -15,9 +15,11 @@ const resultStatus = document.querySelector("#result-status");
 const resultContent = document.querySelector("#result-content");
 const emptyState = document.querySelector("#empty-state");
 const charCount = document.querySelector("#char-count");
-const baReviewButton = document.querySelector("#open-ba-review");
 const baReviewPanel = document.querySelector("#ba-review");
-const baReviewTitle = document.querySelector("#ba-title");
+const baNavigation = [
+  [document.querySelector("#open-ba-review"), baReviewPanel, document.querySelector("#ba-title")],
+  [document.querySelector("#open-ba-activity"), document.querySelector("#ba-activity"), document.querySelector("#ba-activity-title")],
+];
 
 const DRAFT_NOTICE = "Mock 分析草稿，待人工審閱";
 const PENDING_RESULT = "待確認規則後填寫";
@@ -31,10 +33,7 @@ const KIND_LABELS = { happy_path: "正常情境", boundary: "邊界情境", erro
 
 let currentResult = null;
 let activeRequest = null;
-const baReview = mountBaReview(baReviewPanel, {
-  node,
-  download: (content, requestId) => download(content, "text/markdown", "md", "ba-handoff-" + requestId),
-});
+const baReview = mountBaReview(baReviewPanel, { node, download });
 
 function node(tag, text, className) {
   const element = document.createElement(tag);
@@ -74,7 +73,7 @@ function clearResult() {
   resultContent.replaceChildren();
   emptyState.textContent = "輸入需求或載入範例後執行分析。";
   emptyState.hidden = false;
-  baReviewButton.disabled = true;
+  baNavigation.forEach(([button]) => { button.disabled = true; });
   baReview.clear();
 }
 
@@ -171,9 +170,9 @@ function renderResult(result) {
   }
   resultContent.append(node("p", "請求編號 " + result.request_id, "hint request-id"));
   resultView.hidden = false;
-  baReviewButton.disabled = true;
+  baNavigation.forEach(([button]) => { button.disabled = true; });
   baReview.load(result);
-  baReviewButton.disabled = false;
+  baNavigation.forEach(([button]) => { button.disabled = false; });
 }
 
 function markdown(result) {
@@ -258,7 +257,7 @@ form.addEventListener("submit", async (event) => {
       return;
     }
     renderResult({ ...body, system_name: name || null });
-    setNotice("已完成分析，可檢視草稿與原文引用。");
+    setNotice("已完成分析，可檢視草稿、原文引用與 UML 活動圖。");
   } catch (error) {
     setNotice(error.name === "AbortError" ? "" : "無法取得分析結果，請稍後重試。", "error");
   } finally {
@@ -303,10 +302,12 @@ document.querySelector("#export-json").addEventListener("click", () => {
 document.querySelector("#export-md").addEventListener("click", () => {
   if (currentResult) download(markdown(currentResult), "text/markdown", "md");
 });
-baReviewButton.addEventListener("click", () => {
-  baReviewTitle.focus({ preventScroll: true });
-  baReviewPanel.scrollIntoView({ block: "start" });
-});
+for (const [button, target, heading] of baNavigation) {
+  button.addEventListener("click", () => {
+    heading.focus({ preventScroll: true });
+    target.scrollIntoView({ block: "start" });
+  });
+}
 requirementText.addEventListener("input", updateCount);
 window.addEventListener("pagehide", () => activeRequest?.abort());
 

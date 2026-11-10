@@ -13,6 +13,7 @@ QuestionId = Annotated[str, StringConstraints(pattern=r"^Q(0[1-9]|[1-9][0-9])$")
 AcceptanceId = Annotated[str, StringConstraints(pattern=r"^A(0[1-9]|[1-9][0-9])$")]
 TestId = Annotated[str, StringConstraints(pattern=r"^T(0[1-9]|[1-9][0-9])$")]
 AnalysisStatus = Literal["generated", "needs_clarification", "insufficient_input"]
+ActivityText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
 
 
 class StrictModel(BaseModel):
@@ -52,10 +53,28 @@ class CitedItem(StrictModel):
     source_quotes: list[QuoteText] = Field(max_length=3)
 
 
+class ActivityStep(StrictModel):
+    actor: ActivityText
+    action: ActivityText
+    guard: ActivityText | None = None
+
+
+class ActivityBranch(StrictModel):
+    condition: ActivityText
+    when_true: list[ActivityStep] = Field(min_length=1, max_length=4)
+    otherwise_question_id: QuestionId
+
+
+class ActivityPlan(StrictModel):
+    steps: list[ActivityStep] = Field(min_length=1, max_length=4)
+    branch: ActivityBranch | None = None
+
+
 class Feature(CitedItem):
     id: FeatureId
     title: ShortText
     description: DetailText
+    activity: ActivityPlan | None = None
 
 
 class Question(StrictModel):
