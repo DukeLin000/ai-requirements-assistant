@@ -1,0 +1,5 @@
+{
+  "system_name": "預約系統",
+  "requirement_text": "會員可以預約時段。每時段限一人。會員可以取消自己的預約。",
+  "max_test_cases": 8
+}

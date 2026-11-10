@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>需求分析助手</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header class="masthead">
+    <div class="shell masthead-inner">
+      <span class="brand">需求分析助手</span>
+      <span class="mode-badge">本機 Mock</span>
+    </div>
+  </header>
+  <main class="shell">
+    <div class="intro">
+      <h1>需求分析</h1>
+      <p>整理功能、待確認事項、驗收條件與測試案例，保留可核對的需求原文。</p>
+    </div>
+    <div class="workspace">
+      <section class="panel" aria-labelledby="input-title">
+        <div class="panel-heading">
+          <h2 id="input-title">需求輸入</h2>
+          <button type="button" class="secondary" id="load-example">載入範例</button>
+        </div>
+        <form id="analysis-form" autocomplete="off">
+          <fieldset id="analysis-fields">
+            <label for="system-name">系統名稱 <span class="hint">選填</span></label>
+            <input id="system-name" name="system_name" placeholder="例如預約系統">
+            <div class="field-heading">
+              <label for="requirement-text">需求原文</label>
+              <span class="hint" id="char-count">0 / 10,000</span>
+            </div>
+            <textarea id="requirement-text" name="requirement_text" rows="10"
+              aria-describedby="input-hint" placeholder="貼上需求或載入預約範例" required></textarea>
+            <p class="hint field-hint" id="input-hint">輸入 20 至 10,000 個字元。請使用自製或已去識別的需求。</p>
+            <div class="field-heading limit">
+              <label for="max-test-cases">測試案例上限</label>
+              <input id="max-test-cases" name="max_test_cases" type="number" min="1" max="12" step="1" value="8" required>
+            </div>
+            <div class="actions">
+              <button type="submit" id="analyze">執行分析</button>
+              <button type="button" class="secondary" id="clear">清除</button>
+            </div>
+          </fieldset>
+          <p class="notice" id="notice" role="status" aria-live="polite" hidden></p>
+        </form>
+      </section>
+      <section class="panel" aria-labelledby="result-title" id="result-panel">
+        <div class="panel-heading">
+          <h2 id="result-title">分析草稿</h2>
+          <span class="status-badge" id="result-status" hidden></span>
+        </div>
+        <div id="empty-state" class="empty-state">輸入需求或載入範例後執行分析。</div>
+        <div id="analysis-result" hidden>
+          <p class="draft-note">Mock 分析草稿，待人工審閱</p>
+          <div class="actions export-actions">
+            <button type="button" class="secondary" id="export-json">下載 JSON</button>
+            <button type="button" class="secondary" id="export-md">下載 Markdown</button>
+          </div>
+          <div id="result-content"></div>
+        </div>
+      </section>
+    </div>
+  </main>
+</body>
+</html>
