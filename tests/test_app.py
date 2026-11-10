@@ -49,11 +49,13 @@ class AppTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('id="open-ba-review" aria-controls="ba-review" disabled', page.text)
         self.assertIn('id="ba-title" tabindex="-1"', page.text)
         self.assertIn('id="open-ba-activity" aria-controls="ba-activity" disabled', page.text)
-        self.assertIn('type="module" src="/static/app.js?v=uml-activity"', page.text)
+        self.assertIn('id="workbench"', page.text)
+        self.assertIn('type="module" src="/static/app.js?v=workbench"', page.text)
         self.assertIn("default-src 'self'", page.headers["Content-Security-Policy"])
+        self.assertIn("img-src 'self' blob:", page.headers["Content-Security-Policy"])
         for filename in (
-            "app.js?v=uml-activity", "ba-draft.mjs?v=uml-activity", "ba-review.mjs?v=uml-activity",
-            "ba-activity.mjs", "activity-svg.mjs",
+            "app.js?v=workbench", "ba-draft.mjs?v=workbench", "ba-review.mjs?v=workbench",
+            "ba-activity.mjs", "activity-svg.mjs", "workbench.mjs",
         ):
             script = await self.client.get(f"/static/{filename}")
             self.assertEqual(script.status_code, 200)

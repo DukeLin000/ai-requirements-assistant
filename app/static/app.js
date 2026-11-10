@@ -1,5 +1,6 @@
-import { escapeMarkdown } from "./ba-draft.mjs?v=uml-activity";
-import { mountBaReview } from "./ba-review.mjs?v=uml-activity";
+import { escapeMarkdown } from "./ba-draft.mjs?v=workbench";
+import { mountBaReview } from "./ba-review.mjs?v=workbench";
+import { mountWorkbench } from "./workbench.mjs";
 
 const form = document.querySelector("#analysis-form");
 const fields = document.querySelector("#analysis-fields");
@@ -8,6 +9,9 @@ const requirementText = document.querySelector("#requirement-text");
 const maxTestCases = document.querySelector("#max-test-cases");
 const loadExample = document.querySelector("#load-example");
 const analyzeButton = document.querySelector("#analyze");
+const clearButton = document.querySelector("#clear");
+const detachButton = document.querySelector("#detach-work-item");
+const analysisTicket = document.querySelector("#analysis-ticket");
 const notice = document.querySelector("#notice");
 const resultPanel = document.querySelector("#result-panel");
 const resultView = document.querySelector("#analysis-result");
@@ -33,7 +37,21 @@ const KIND_LABELS = { happy_path: "正常情境", boundary: "邊界情境", erro
 
 let currentResult = null;
 let activeRequest = null;
-const baReview = mountBaReview(baReviewPanel, { node, download });
+let workbenchBusy = false;
+const baReview = mountBaReview(baReviewPanel, {
+  node, download,
+  onChange: () => workbench.reviewChanged(),
+  isRuleLocked: (id) => workbench.isRuleLocked(id),
+});
+const workbench = mountWorkbench({
+  node, review: baReview,
+  canOpen: () => !activeRequest && canReplaceReview(),
+  onOpen: openTrackedRequirement,
+  onBusy(value) {
+    workbenchBusy = value;
+    lockAnalysis();
+  },
+});
 
 function node(tag, text, className) {
   const element = document.createElement(tag);
@@ -48,20 +66,27 @@ function setNotice(message, kind = "info") {
   notice.hidden = !message;
 }
 
+function lockAnalysis() {
+  const busy = Boolean(activeRequest) || workbenchBusy;
+  const analyzed = Boolean(workbench.current()?.analysis);
+  fields.disabled = busy;
+  analyzeButton.disabled = analyzed;
+  loadExample.disabled = busy;
+  baReview.setBusy(busy);
+}
+
 function startRequest() {
   activeRequest = new AbortController();
-  fields.disabled = true;
-  loadExample.disabled = true;
-  baReview.setBusy(true);
+  workbench.setBusy(true);
+  lockAnalysis();
   return activeRequest.signal;
 }
 
 function finishRequest() {
   activeRequest = null;
-  fields.disabled = false;
-  loadExample.disabled = false;
-  baReview.setBusy(false);
-  analyzeButton.textContent = "執行分析";
+  workbench.setBusy(false);
+  lockAnalysis();
+  analyzeButton.textContent = workbench.current()?.analysis ? "已完成分析" : "執行分析";
   resultPanel.removeAttribute("aria-busy");
   if (!currentResult) emptyState.textContent = "輸入需求或載入範例後執行分析。";
 }
@@ -78,7 +103,34 @@ function clearResult() {
 }
 
 function canReplaceReview() {
-  return !baReview.isDirty() || window.confirm("繼續後，操作成功時將清除尚未下載的 BA 修改。確定繼續？");
+  return !(baReview.isDirty() || workbench.isDirty())
+    || window.confirm("目前有尚未儲存或下載的修改。確定切換？");
+}
+
+function openTrackedRequirement(record) {
+  clearResult();
+  form.reset();
+  const tracked = Boolean(record);
+  systemName.value = record?.system_name ?? "";
+  requirementText.value = record?.requirement_text ?? "";
+  systemName.readOnly = tracked;
+  requirementText.readOnly = tracked;
+  loadExample.hidden = tracked;
+  clearButton.hidden = tracked;
+  detachButton.hidden = !tracked;
+  analysisTicket.textContent = record ? record.number + "　" + record.title + "　來源版次 " + record.source.version : "";
+  analysisTicket.hidden = !tracked;
+  updateCount();
+  setNotice("");
+  if (record?.analysis) {
+    renderResult({ ...record.analysis, system_name: record.system_name }, record);
+    workbench.reviewChanged();
+  }
+  lockAnalysis();
+  analyzeButton.textContent = record?.analysis ? "已完成分析" : "執行分析";
+  const heading = document.querySelector(record?.analysis ? "#ba-title" : "#input-title");
+  heading.focus({ preventScroll: true });
+  heading.scrollIntoView({ block: "start" });
 }
 
 function canonicalRequirement() {
@@ -148,7 +200,7 @@ function renderItem(item) {
   return card;
 }
 
-function renderResult(result) {
+function renderResult(result, record = null) {
   currentResult = result;
   resultStatus.textContent = STATUS_LABELS[result.status];
   resultStatus.dataset.status = result.status;
@@ -171,7 +223,7 @@ function renderResult(result) {
   resultContent.append(node("p", "請求編號 " + result.request_id, "hint request-id"));
   resultView.hidden = false;
   baNavigation.forEach(([button]) => { button.disabled = true; });
-  baReview.load(result);
+  baReview.load(result, record);
   baNavigation.forEach(([button]) => { button.disabled = false; });
 }
 
@@ -222,7 +274,8 @@ function download(content, mediaType, extension, basename = "requirements-" + cu
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (activeRequest) return;
+  const tracked = workbench.current();
+  if (activeRequest || workbenchBusy || tracked?.analysis) return;
   const name = systemName.value.trim();
   const requirement = canonicalRequirement();
   const length = Array.from(requirement).length;
@@ -236,17 +289,21 @@ form.addEventListener("submit", async (event) => {
     setNotice("系統名稱上限為 80 個字元，測試案例上限須為 1 至 12 的整數。", "error");
     return;
   }
-  if (!canReplaceReview()) return;
+  if (!tracked && !canReplaceReview()) return;
   const signal = startRequest();
   analyzeButton.textContent = "分析中…";
   resultPanel.setAttribute("aria-busy", "true");
   if (!currentResult) emptyState.textContent = "正在分析需求…";
   setNotice("分析中，請稍候。");
+  let savedAnalysis = false;
   try {
-    const response = await fetch("/api/v1/analyses", {
+    const path = tracked ? "/api/v1/requirements/" + encodeURIComponent(tracked.number) + "/analysis" : "/api/v1/analyses";
+    const payload = tracked ? { revision: tracked.revision, max_test_cases: caseLimit }
+      : { system_name: name || null, requirement_text: requirement, max_test_cases: caseLimit };
+    const response = await fetch(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ system_name: name || null, requirement_text: requirement, max_test_cases: caseLimit }),
+      body: JSON.stringify(payload),
       cache: "no-store",
       signal,
     });
@@ -256,17 +313,23 @@ form.addEventListener("submit", async (event) => {
       setNotice((body.error?.message || "分析失敗。") + id, "error");
       return;
     }
-    renderResult({ ...body, system_name: name || null });
+    if (tracked) {
+      workbench.acceptAnalysis(body);
+      renderResult({ ...body.analysis, system_name: body.system_name }, body);
+      workbench.reviewChanged();
+      savedAnalysis = true;
+    } else renderResult({ ...body, system_name: name || null });
     setNotice("已完成分析，可檢視草稿、原文引用與 UML 活動圖。");
   } catch (error) {
     setNotice(error.name === "AbortError" ? "" : "無法取得分析結果，請稍後重試。", "error");
   } finally {
     finishRequest();
+    if (savedAnalysis) void workbench.refresh();
   }
 });
 
 loadExample.addEventListener("click", async () => {
-  if (activeRequest || !canReplaceReview()) return;
+  if (activeRequest || workbenchBusy || workbench.current() || !canReplaceReview()) return;
   const signal = startRequest();
   try {
     const response = await fetch("/static/example.json", { signal });
@@ -285,13 +348,18 @@ loadExample.addEventListener("click", async () => {
   }
 });
 
-document.querySelector("#clear").addEventListener("click", () => {
-  if (activeRequest || !canReplaceReview()) return;
+clearButton.addEventListener("click", () => {
+  if (activeRequest || workbenchBusy || workbench.current() || !canReplaceReview()) return;
   form.reset();
   updateCount();
   clearResult();
   setNotice("");
   requirementText.focus();
+});
+detachButton.addEventListener("click", () => {
+  if (activeRequest || workbenchBusy || !canReplaceReview()) return;
+  workbench.detach();
+  openTrackedRequirement(null);
 });
 document.querySelector("#export-json").addEventListener("click", () => {
   if (currentResult) {
@@ -304,6 +372,7 @@ document.querySelector("#export-md").addEventListener("click", () => {
 });
 for (const [button, target, heading] of baNavigation) {
   button.addEventListener("click", () => {
+    if (target.matches("details")) target.open = true;
     heading.focus({ preventScroll: true });
     target.scrollIntoView({ block: "start" });
   });
@@ -313,3 +382,4 @@ window.addEventListener("pagehide", () => activeRequest?.abort());
 
 form.reset();
 updateCount();
+void workbench.refresh();

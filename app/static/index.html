@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>需求分析助手</title>
-  <link rel="stylesheet" href="/static/style.css?v=uml-activity">
-  <script type="module" src="/static/app.js?v=uml-activity"></script>
+  <link rel="stylesheet" href="/static/style.css?v=workbench">
+  <script type="module" src="/static/app.js?v=workbench"></script>
 </head>
 <body>
   <header class="masthead">
@@ -16,15 +16,81 @@
   </header>
   <main class="shell">
     <div class="intro">
-      <h1>需求分析</h1>
-      <p>整理功能、待確認事項、驗收條件與測試案例，保留可核對的需求原文。</p>
+      <h1>需求工作台</h1>
+      <p>登錄來源文件，分析與分級需求，再以 BA 文件交給開發團隊。</p>
     </div>
+    <section class="panel work-panel" id="workbench" aria-labelledby="workbench-title">
+      <div class="panel-heading">
+        <h2 id="workbench-title" tabindex="-1">BA 需求清單</h2>
+        <button type="button" id="work-refresh" class="secondary">重新整理</button>
+      </div>
+      <div class="work-table-wrap">
+        <table class="work-table">
+          <thead><tr><th>需求單號</th><th>需求名稱</th><th>來源</th><th>等級</th><th>進度</th><th>操作</th></tr></thead>
+          <tbody id="work-rows"></tbody>
+        </table>
+      </div>
+      <p class="hint field-hint" id="work-empty">載入需求清單中。</p>
+      <div class="actions work-paging">
+        <button type="button" class="secondary" id="work-prev" disabled>上一頁</button>
+        <button type="button" class="secondary" id="work-next" disabled>下一頁</button>
+      </div>
+      <details id="work-intake" class="work-details">
+        <summary>新增需求單</summary>
+        <form id="intake-form" autocomplete="off">
+          <fieldset id="intake-fields">
+            <div class="ba-field-grid">
+              <label class="ba-field">需求單號
+                <input name="number" maxlength="80" placeholder="例如 REQ-2026-001" required>
+              </label>
+              <label class="ba-field">需求名稱
+                <input name="title" maxlength="160" required>
+              </label>
+              <label class="ba-field">來源類型
+                <select name="source_kind"><option value="requirement">需求文件</option><option value="letter">公文</option></select>
+              </label>
+              <label class="ba-field">來源編號
+                <input name="source_number" maxlength="160" placeholder="公文文號或需求文件編號" required>
+              </label>
+              <label class="ba-field">來源文件名稱
+                <input name="source_name" maxlength="160" required>
+              </label>
+              <label class="ba-field">來源版次
+                <input name="source_version" maxlength="80" required>
+              </label>
+              <label class="ba-field">系統名稱
+                <input name="system_name" maxlength="80">
+              </label>
+              <label class="ba-field">來源附件（選填）
+                <input name="attachment" type="file" accept=".pdf,.docx,.txt">
+                <span class="hint">上限 2 MiB。相同來源編號與版次可共用已登錄附件。</span>
+              </label>
+            </div>
+            <label class="ba-field field-hint">本筆需求原文
+              <textarea name="requirement_text" rows="5" maxlength="10000" required></textarea>
+              <span class="hint">貼上這一筆需要分析的段落，20 至 10,000 個字元。</span>
+            </label>
+            <div class="actions"><button type="submit">登錄並開啟需求</button></div>
+          </fieldset>
+        </form>
+      </details>
+      <details class="work-details" id="work-inbox">
+        <summary>開發團隊接單</summary>
+        <div id="work-dispatches"></div>
+        <div class="actions work-paging">
+          <button type="button" class="secondary" id="dispatch-prev" disabled>上一頁</button>
+          <button type="button" class="secondary" id="dispatch-next" disabled>下一頁</button>
+        </div>
+      </details>
+      <p class="notice" id="work-notice" role="status" hidden></p>
+    </section>
     <div class="workspace">
       <section class="panel" aria-labelledby="input-title">
         <div class="panel-heading">
-          <h2 id="input-title">需求輸入</h2>
+          <h2 id="input-title" tabindex="-1">需求輸入</h2>
           <button type="button" class="secondary" id="load-example">載入範例</button>
         </div>
+        <p id="analysis-ticket" class="hint" hidden></p>
         <form id="analysis-form" autocomplete="off">
           <fieldset id="analysis-fields">
             <label for="system-name">系統名稱 <span class="hint">選填</span></label>
@@ -43,6 +109,7 @@
             <div class="actions">
               <button type="submit" id="analyze">執行分析</button>
               <button type="button" class="secondary" id="clear">清除</button>
+              <button type="button" class="secondary" id="detach-work-item" hidden>切換自由分析</button>
             </div>
           </fieldset>
           <p class="notice" id="notice" role="status" aria-live="polite" hidden></p>
@@ -70,7 +137,7 @@
       <div class="panel-heading">
         <h2 id="ba-title" tabindex="-1">BA 需求審閱</h2>
       </div>
-      <p class="draft-note">確認業務規則與驗收條件，完成後下載交接稿並附回需求單。草稿保存在目前頁面。</p>
+      <p class="draft-note" id="ba-storage-note">請核對規則卡中的問題與驗收條件。</p>
       <form autocomplete="off" novalidate>
         <fieldset id="ba-review-fields">
           <div class="ba-field-grid ba-metadata">
@@ -92,29 +159,26 @@
           </div>
           <section class="ba-group" aria-labelledby="ba-rules-title">
             <div class="panel-heading">
-              <h3 id="ba-rules-title">業務規則</h3>
+              <h3 id="ba-rules-title">規則審閱卡</h3>
               <button type="button" class="secondary" data-ba-add="rules">新增規則</button>
             </div>
             <div id="ba-rules"></div>
           </section>
-          <section class="ba-group" aria-labelledby="ba-questions-title">
+          <details class="ba-group work-details" id="ba-unlinked">
+            <summary>尚待關聯的問題與驗收</summary>
             <div class="panel-heading">
               <h3 id="ba-questions-title">待確認事項與決議</h3>
               <button type="button" class="secondary" data-ba-add="questions">新增問題</button>
             </div>
             <div id="ba-questions"></div>
-          </section>
-          <section class="ba-group" aria-labelledby="ba-criteria-title">
             <div class="panel-heading">
               <h3 id="ba-criteria-title">驗收條件</h3>
               <button type="button" class="secondary" data-ba-add="criteria">新增驗收條件</button>
             </div>
             <div id="ba-criteria"></div>
-          </section>
-          <section class="ba-group" id="ba-activity" aria-labelledby="ba-activity-title">
-            <div class="panel-heading">
-              <h3 id="ba-activity-title" tabindex="-1">UML 活動圖草稿</h3>
-            </div>
+          </details>
+          <details class="ba-group work-details" id="ba-activity" aria-labelledby="ba-activity-title">
+            <summary id="ba-activity-title" tabindex="-1">UML 活動圖草稿</summary>
             <label class="ba-field">圖面對象
               <select id="ba-activity-choice"></select>
             </label>
@@ -127,13 +191,57 @@
             </div>
             <p class="hint field-hint">交接稿附上目前選取的圖面原始碼。可將 SVG 一起附回需求單。</p>
             <p class="notice" id="ba-activity-notice" role="status" hidden></p>
-          </section>
+          </details>
           <div class="actions">
-            <button type="submit">下載 BA 交接稿</button>
+            <button type="button" id="save-tracked-review" hidden>儲存 BA 審閱</button>
+            <button type="button" class="secondary" id="open-dispatch-controls" hidden>前往分級與派發</button>
+            <button type="submit" class="secondary">下載 BA Markdown</button>
           </div>
         </fieldset>
         <p class="notice" id="ba-notice" role="status" aria-live="polite" hidden></p>
       </form>
+    </section>
+    <section class="panel work-panel" id="work-detail" aria-labelledby="work-detail-title" hidden>
+      <div class="panel-heading">
+        <h2 id="work-detail-title" tabindex="-1">分級、文件與派發</h2>
+        <button type="button" class="secondary" id="work-back">回需求清單</button>
+      </div>
+      <p id="work-record-label" class="draft-note"></p>
+      <p id="work-source" class="hint field-hint"></p>
+      <fieldset id="work-detail-fields" class="ba-group">
+        <div class="ba-field-grid">
+          <label class="ba-field">需求等級
+            <input id="work-grade" maxlength="40" placeholder="填寫公司定義的等級">
+          </label>
+          <label class="ba-field">承接團隊
+            <input id="work-team" maxlength="160" placeholder="派發時必填">
+          </label>
+        </div>
+        <div class="panel-heading field-heading">
+          <h3>功能範圍</h3>
+          <button type="button" class="secondary" id="work-add-function">新增功能</button>
+        </div>
+        <p class="hint">勾選本次要放入 BA 文件或派發給 SA 的功能。已派發功能保留原範圍。</p>
+        <div id="work-functions"></div>
+        <label class="ba-field field-hint">BA 文件內嵌的 UML 圖
+          <select id="work-diagram"></select>
+        </label>
+        <div class="actions">
+          <button type="button" class="secondary" id="work-save">儲存分級與審閱</button>
+          <button type="button" class="secondary" id="work-preview">預覽 BA 文件</button>
+          <button type="button" class="secondary" id="work-word">產出 BA Word</button>
+          <button type="button" id="work-dispatch">派發給 SA</button>
+        </div>
+      </fieldset>
+      <p class="notice" id="work-detail-notice" role="status" hidden></p>
+      <section id="work-doc-preview" class="ba-group" aria-labelledby="work-preview-title" hidden>
+        <h3 id="work-preview-title" tabindex="-1">BA 文件預覽</h3>
+        <div id="work-preview-content"></div>
+      </section>
+      <section class="ba-group" aria-labelledby="work-history-title">
+        <h3 id="work-history-title">BA 文件與派發紀錄</h3>
+        <div id="work-history"></div>
+      </section>
     </section>
   </main>
 </body>

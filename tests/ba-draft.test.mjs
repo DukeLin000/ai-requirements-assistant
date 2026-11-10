@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  acceptanceStatus, baHandoffMarkdown, createBaDraft, questionResolved, validateBaDraft,
+  acceptanceStatus, baHandoffMarkdown, createBaDraft, questionResolved, restoreBaDraft, reviewSnapshot, validateBaDraft,
 } from "../app/static/ba-draft.mjs";
 
 const result = {
@@ -42,6 +42,24 @@ test("copy rules, original citations and selective blockers into a separate BA d
   draft.rules[0].quotes.push("測試資料");
   assert.equal(result.data.features[0].description, "分行人員可查詢所屬分行的報表。");
   assert.deepEqual(result.data.features[0].source_quotes, ["只能查詢所屬分行。"]);
+});
+
+test("saved BA edits restore against the original citations and keep read-only metadata", () => {
+  const draft = review();
+  draft.rules[0].text = "核對後的分行查詢規則。";
+  const saved = reviewSnapshot(draft);
+  assert.equal("quotes" in saved.rules[0], false);
+  const restored = restoreBaDraft(result, {
+    number: "REQ-2026-010",
+    source: { name: "測試公文", version: "v1.2" },
+    review: saved,
+  });
+  assert.equal(restored.meta.requestNumber, "REQ-2026-010");
+  assert.equal(restored.meta.sourceVersion, "v1.2");
+  assert.equal(restored.rules[0].text, "核對後的分行查詢規則。");
+  assert.deepEqual(restored.rules[0].quotes, ["只能查詢所屬分行。"]);
+  restored.questions[0].ruleIds.push("BR-01");
+  assert.deepEqual(saved.questions[0].ruleIds, ["BR-02"]);
 });
 
 test("a partial decision blocks only its related acceptance criterion", () => {

@@ -90,7 +90,8 @@ button:hover:not(:disabled) { filter: brightness(0.94); }
 button:disabled { opacity: 0.58; cursor: default; }
 button:focus-visible, input:focus-visible, select:focus-visible,
 textarea:focus-visible, summary:focus-visible, #ba-title:focus,
-#ba-activity-title:focus, .activity-preview:focus-visible {
+#ba-activity-title:focus, .activity-preview:focus-visible, #workbench-title:focus,
+#work-detail-title:focus, #work-preview-title:focus, #input-title:focus {
   outline: 2px solid #1e7060;
   outline-offset: 2px;
 }
@@ -166,6 +167,26 @@ textarea:focus-visible, summary:focus-visible, #ba-title:focus,
   border-radius: 8px;
 }
 .activity-preview svg { display: block; margin-inline: auto; }
+.work-panel { margin-bottom: 24px; }
+.work-table-wrap { overflow-x: auto; }
+.work-table { width: 100%; border-collapse: collapse; text-align: left; }
+.work-table th, .work-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); }
+.work-table th { background: #f3f6f9; white-space: nowrap; }
+.work-table td:last-child { white-space: nowrap; }
+.work-paging { margin: 10px 0; }
+.work-details { margin-top: 14px; }
+.work-details > summary { color: var(--accent); font-weight: 650; cursor: pointer; margin-bottom: 10px; }
+.work-link { display: inline-block; color: var(--accent); margin: 4px 10px; }
+.work-function { margin-top: 10px; }
+.work-function > button { margin-top: 8px; }
+.work-check { display: flex; gap: 8px; align-items: baseline; margin: 5px 0; font-weight: 500; }
+.work-check input { width: auto; }
+.work-preview-fields { display: grid; grid-template-columns: minmax(5rem, 8rem) 1fr; gap: 4px 10px; }
+.work-preview-fields dt { color: var(--text-secondary); font-weight: 650; }
+.work-preview-fields dd { margin: 0; overflow-wrap: anywhere; }
+#work-preview-content h4 { margin-top: 10px; }
+#work-preview-content p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.rule-related > .item { background: #fff; border: 1px solid var(--border); margin-top: 14px; }
 
 @media (max-width: 800px) {
   .workspace, .ba-field-grid { grid-template-columns: minmax(0, 1fr); }

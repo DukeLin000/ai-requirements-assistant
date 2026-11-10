@@ -60,6 +60,35 @@ export function sourceLabel(rule) {
   return SOURCE_LABELS[rule.basis];
 }
 
+export function restoreBaDraft(result, record) {
+  const draft = createBaDraft(result);
+  if (!record) return draft;
+  draft.meta.requestNumber = record.number;
+  draft.meta.sourceName = record.source.name;
+  draft.meta.sourceVersion = record.source.version;
+  if (!record.review) return draft;
+  const sourceRules = new Map(draft.rules.map((rule) => [rule.id, rule]));
+  const saved = structuredClone(record.review);
+  draft.meta.goal = saved.goal;
+  draft.meta.scope = saved.scope;
+  draft.rules = saved.rules.map((rule) => ({
+    ...(sourceRules.get(rule.id) ?? { basis: "manual", quotes: [], activitySeed: null }), ...rule,
+  }));
+  draft.questions = saved.questions;
+  draft.criteria = saved.criteria;
+  return draft;
+}
+
+export function reviewSnapshot(draft) {
+  return structuredClone({
+    goal: draft.meta.goal,
+    scope: draft.meta.scope,
+    rules: draft.rules.map(({ id, text, location, status, confirmation }) => ({ id, text, location, status, confirmation })),
+    questions: draft.questions,
+    criteria: draft.criteria,
+  });
+}
+
 function validDate(value) {
   const date = new Date(value);
   return /^\d{4}-\d{2}-\d{2}$/.test(value)
